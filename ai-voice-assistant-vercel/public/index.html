@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Voice Assistant</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0b0f19;
+    color: #e5e7eb;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .app {
+    width: 100%;
+    max-width: 480px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 20px;
+    text-align: center;
+    margin: 8px 0 2px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #8b93a7;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .avatar {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-start { background: #22c55e; color: white; }
+  .btn-end { background: #ef4444; color: white; }
+  .btn-new { background: #3b82f6; color: white; }
+  .call-status {
+    text-align: center;
+    font-size: 12px;
+    color: #8b93a7;
+    margin-bottom: 12px;
+  }
+  .recorder-zone {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .mic-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #1f2937;
+    border: 2px solid #3b82f6;
+    font-size: 26px;
+    color: white;
+    cursor: pointer;
+  }
+  .mic-btn.recording {
+    background: #ef4444;
+    border-color: #ef4444;
+    animation: pulse 1.2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+    70% { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  }
+  .status-line {
+    text-align: center;
+    font-size: 13px;
+    min-height: 18px;
+    margin-bottom: 10px;
+  }
+  .status-line.error { color: #f87171; }
+  .status-line.warn { color: #facc15; }
+  .status-line.ok { color: #4ade80; }
+  .debug {
+    text-align: center;
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+  .chat {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-right: 2px;
+  }
+  .msg {
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    max-width: 88%;
+  }
+  .msg.user {
+    background: #2563eb;
+    align-self: flex-end;
+  }
+  .msg.assistant {
+    background: #1f2937;
+    align-self: flex-start;
+  }
+  .text-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+  }
+  .text-input-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #374151;
+    background: #111827;
+    color: white;
+    font-size: 14px;
+  }
+  .text-input-row button {
+    background: #3b82f6;
+    color: white;
+    flex: none;
+    padding: 10px 16px;
+  }
+  .footer-note {
+    text-align: center;
+    font-size: 11px;
+    color: #4b5563;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🎙️ AI Voice Assistant</h1>
+  <p class="subtitle">Speech-to-Text → Gemini → Text-to-Speech</p>
+  <div class="avatar">🤖</div>
+
+  <div class="controls">
+    <button id="startCallBtn" class="btn-start">📞 Start Call</button>
+    <button id="endCallBtn" class="btn-end" disabled>☎️ End Call</button>
+    <button id="newConvoBtn" class="btn-new">🆕 New</button>
+  </div>
+  <div class="call-status" id="callStatus">Not in a call.</div>
+
+  <div class="recorder-zone" id="recorderZone" style="display:none;">
+    <button id="micBtn" class="mic-btn" title="Tap to record, tap again to stop">🎤</button>
+  </div>
+  <div class="status-line" id="statusLine"></div>
+  <div class="debug" id="debugLine"></div>
+
+  <div class="chat" id="chat"></div>
+
+  <div class="text-input-row">
+    <input type="text" id="textInput" placeholder="Or type your message..." />
+    <button id="sendTextBtn">Send</button>
+  </div>
+  <p class="footer-note">Messages this session: <span id="msgCount">0</span> / <span id="msgLimit">20</span></p>
+</div>
+
+<script>
+const MAX_MESSAGES = 20;
+let messageCount = 0;
+let history = []; // {role: 'user'|'assistant', content: string}
+let inCall = false;
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+
+const chatEl = document.getElementById('chat');
+const statusLine = document.getElementById('statusLine');
+const debugLine = document.getElementById('debugLine');
+const callStatus = document.getElementById('callStatus');
+const recorderZone = document.getElementById('recorderZone');
+const micBtn = document.getElementById('micBtn');
+const startCallBtn = document.getElementById('startCallBtn');
+const endCallBtn = document.getElementById('endCallBtn');
+const newConvoBtn = document.getElementById('newConvoBtn');
+const textInput = document.getElementById('textInput');
+const sendTextBtn = document.getElementById('sendTextBtn');
+const msgCountEl = document.getElementById('msgCount');
+
+document.getElementById('msgLimit').textContent = MAX_MESSAGES;
+
+function setStatus(text, type) {
+  statusLine.textContent = text || '';
+  statusLine.className = 'status-line' + (type ? ' ' + type : '');
+}
+
+function addMessage(role, content) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = content;
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1.0;
+  window.speechSynthesis.speak(utter);
+}
+
+async function sendToGemini(message) {
+  if (messageCount >= MAX_MESSAGES) {
+    setStatus(`Session limit of ${MAX_MESSAGES} messages reached. Refresh to reset.`, 'error');
+    return;
+  }
+  addMessage('user', message);
+  history.push({ role: 'user', content: message });
+  messageCount++;
+  msgCountEl.textContent = messageCount;
+
+  setStatus('Thinking...', '');
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history: history.slice(0, -1) }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus('🤖 ' + (data.error || 'Something went wrong.'), 'error');
+      return;
+    }
+    addMessage('assistant', data.reply);
+    history.push({ role: 'assistant', content: data.reply });
+    speak(data.reply);
+    setStatus('', '');
+  } catch (err) {
+    setStatus('🤖 Network error: ' + err.message, 'error');
+  }
+}
+
+// ---- Text input ----
+sendTextBtn.addEventListener('click', () => {
+  const val = textInput.value.trim();
+  if (!val) return;
+  textInput.value = '';
+  sendToGemini(val);
+});
+textInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendTextBtn.click();
+});
+
+// ---- Call Mode ----
+startCallBtn.addEventListener('click', async () => {
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true }); // triggers permission prompt
+  } catch (err) {
+    setStatus('🎤 Microphone permission denied or unavailable.', 'error');
+    return;
+  }
+  inCall = true;
+  startCallBtn.disabled = true;
+  endCallBtn.disabled = false;
+  recorderZone.style.display = 'flex';
+  callStatus.textContent = '🟢 Call active — tap the mic, speak, tap again to send.';
+  setStatus('', '');
+});
+
+endCallBtn.addEventListener('click', () => {
+  inCall = false;
+  startCallBtn.disabled = false;
+  endCallBtn.disabled = true;
+  recorderZone.style.display = 'none';
+  callStatus.textContent = 'Not in a call.';
+  if (mediaRecorder && isRecording) {
+    mediaRecorder.stop();
+  }
+  setStatus('', '');
+});
+
+newConvoBtn.addEventListener('click', () => {
+  history = [];
+  messageCount = 0;
+  msgCountEl.textContent = 0;
+  chatEl.innerHTML = '';
+  inCall = false;
+  startCallBtn.disabled = false;
+  endCallBtn.disabled = true;
+  recorderZone.style.display = 'none';
+  callStatus.textContent = 'Not in a call.';
+  setStatus('', '');
+  debugLine.textContent = '';
+});
+
+// ---- Mic recording ----
+micBtn.addEventListener('click', async () => {
+  if (!isRecording) {
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      setStatus('🎤 Could not access microphone: ' + err.message, 'error');
+      return;
+    }
+    audioChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+    mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+      await handleRecordedAudio(blob);
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    micBtn.classList.add('recording');
+    setStatus('🎤 Listening... tap again to stop.', '');
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    micBtn.classList.remove('recording');
+  }
+});
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Gemini's audio understanding ONLY supports WAV, MP3, AIFF, AAC, OGG
+// Vorbis, and FLAC (confirmed from Google's own docs). Browsers'
+// MediaRecorder records as audio/webm (Opus codec) by default, which is
+// NOT on that list — sending it doesn't cleanly error, Gemini just
+// hallucinates a plausible-sounding sentence instead. So every recording
+// is converted to a real WAV file here before it's ever sent.
+async function blobToWav(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioCtx();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  const wavArrayBuffer = audioBufferToWav(audioBuffer);
+  audioCtx.close();
+  return new Blob([wavArrayBuffer], { type: 'audio/wav' });
+}
+
+function audioBufferToWav(buffer) {
+  const numChannels = 1; // downmix to mono
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+
+  let samples;
+  if (buffer.numberOfChannels > 1) {
+    const ch0 = buffer.getChannelData(0);
+    const ch1 = buffer.getChannelData(1);
+    samples = new Float32Array(ch0.length);
+    for (let i = 0; i < ch0.length; i++) samples[i] = (ch0[i] + ch1[i]) / 2;
+  } else {
+    samples = buffer.getChannelData(0);
+  }
+
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = samples.length * bytesPerSample;
+  const arrayBuffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(arrayBuffer);
+
+  function writeString(offset, str) {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return arrayBuffer;
+}
+
+async function handleRecordedAudio(blob) {
+  if (blob.size < 500) {
+    debugLine.textContent = `Debug: recorded ${blob.size} bytes, type: ${blob.type}`;
+    setStatus('🎤 Recording seems empty — try again and speak right after tapping.', 'warn');
+    return;
+  }
+  setStatus('Processing audio...', '');
+  let wavBlob;
+  try {
+    wavBlob = await blobToWav(blob);
+  } catch (err) {
+    debugLine.textContent = `Debug: recorded ${blob.size} bytes, type: ${blob.type} (WAV conversion failed)`;
+    setStatus('🎤 Could not process that recording: ' + err.message, 'error');
+    return;
+  }
+  debugLine.textContent = `Debug: original ${blob.size}B (${blob.type}) → converted to WAV ${wavBlob.size}B`;
+
+  setStatus('Transcribing...', '');
+  try {
+    const base64 = await blobToBase64(wavBlob);
+    const res = await fetch('/api/transcribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audioBase64: base64, mimeType: 'audio/wav' }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus('🎤 ' + (data.error || 'Transcription failed.'), 'warn');
+      return;
+    }
+    setStatus('You said: "' + data.text + '"', 'ok');
+    await sendToGemini(data.text);
+  } catch (err) {
+    setStatus('🎤 Error: ' + err.message, 'error');
+  }
+}
+</script>
+</body>
+</html>
